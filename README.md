@@ -110,6 +110,15 @@ core test suite.
 *Planned (not in v0.8): Plotly interactivity, a `K(r, t)` time-slider
 animation, and multi-file comparison — see [`app/README.md`](app/README.md).*
 
+### Deploy (Streamlit Community Cloud)
+
+The app deploys on [Streamlit Community Cloud](https://share.streamlit.io) with
+no extra setup: point a new app at **`app/streamlit_app.py`** on the **`main`**
+branch. Dependencies install from the repo-root **`requirements.txt`** (the
+package + its `gui` extra; `runtime.txt` pins Python 3.12). The app resolves the
+bundled `examples/*.npz` from its own file location, so the example dropdown
+works in the cloud sandbox. Every push to `main` triggers an automatic redeploy.
+
 ## 2D kernels
 
 2D input `K(x, y, t)` is handled by **radial reduction with full-2D moments**:

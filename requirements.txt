@@ -1,0 +1,18 @@
+# Streamlit Community Cloud installs the app's dependencies from this file.
+#
+# Install the package itself with its `gui` extra, from the repo root. This
+# pulls the runtime deps (numpy, scipy, matplotlib) + streamlit, plus the
+# kernel_viewer / stateflow packages, in one line.
+#
+# yupi is intentionally NOT listed: it is only the `examples` extra used by the
+# offline data generator (examples/generate_yupi_examples.py). The deployed app
+# loads the committed examples/*.npz and never imports yupi.
+#
+# If a Streamlit Cloud image rejects the editable install, replace the line
+# below with the explicit, non-editable form:
+#     numpy>=1.24
+#     scipy>=1.10
+#     matplotlib>=3.7
+#     streamlit>=1.30
+#     .
+-e .[gui]
