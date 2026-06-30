@@ -112,6 +112,8 @@ animation, and multi-file comparison — see [`app/README.md`](app/README.md).*
 
 ### Deploy (Streamlit Community Cloud)
 
+**Live app:** https://kernel-dynamics-viewer-mtrq39zmjxblbfptzs6evm.streamlit.app/
+
 The app deploys on [Streamlit Community Cloud](https://share.streamlit.io) with
 no extra setup: point a new app at **`app/streamlit_app.py`** on the **`main`**
 branch. Dependencies install from the repo-root **`requirements.txt`** (the
