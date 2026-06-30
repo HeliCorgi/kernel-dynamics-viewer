@@ -46,3 +46,24 @@ jobs:
         run: pip install -e ".[gui]"
       - name: Headless GUI smoke test
         run: python tests/test_gui_smoke.py
+
+  # Examples job: installs the optional .[examples] extra (yupi) and regenerates
+  # the cross-library kernels end-to-end, catching yupi-API drift. The generator
+  # exits non-zero unless the random walk classifies diffusive and the Lévy
+  # ensemble classifies levy. Kept separate so the core job stays yupi-free.
+  examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install with examples extra (yupi)
+        run: pip install -e ".[examples]"
+      - name: Regenerate + classify yupi cross-library examples
+        run: python examples/generate_yupi_examples.py

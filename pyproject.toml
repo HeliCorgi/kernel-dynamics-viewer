@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kernel-dynamics-viewer"
-version = "0.8.0"
+version = "0.9.0"
 description = "Regime diagnostics for spatiotemporal kernels K(r,t) from non-equilibrium many-body systems"
 readme = "README.md"
 license = {text = "MIT"}
@@ -15,6 +15,10 @@ dependencies = ["numpy>=1.24", "scipy>=1.10", "matplotlib>=3.7"]
 # GUI-only extra. The core install stays numpy + scipy + matplotlib; Streamlit
 # is never imported by any core module or the core test suite.
 gui = ["streamlit>=1.30"]
+# Example-generation extra: yupi is used ONLY by examples/generate_yupi_examples.py
+# to synthesise trajectory ensembles. The library (incl. io/trajectories.py) never
+# imports yupi, and the core test job does not need it.
+examples = ["yupi>=1.0"]
 
 [project.scripts]
 kernel-viewer = "kernel_viewer.cli:main"

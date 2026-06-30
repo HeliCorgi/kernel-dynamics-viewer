@@ -288,6 +288,51 @@ def test_load_any_mat_and_csv():
     assert raised, "a 4-column long CSV (2D) must raise NotImplementedError"
 
 
+def test_trajectory_helpers():
+    """v0.9: pure-NumPy unit tests of the trajectory->kernel helpers (NO yupi).
+    A light-tailed (Gaussian) ensemble must diffuse (sigma2 ~ t through the
+    lattice path); a heavy-tailed (Cauchy) ensemble's radial-density profile
+    must expose a power-law tail. This proves the helpers are correct
+    independently of yupi."""
+    import numpy as np
+    from kernel_viewer.io.trajectories import (ensemble_to_kernel2d,
+                                               ensemble_to_radial_kernel)
+    from kernel_viewer.regimes.classifier import classify_any
+
+    N, T = 4000, 12
+    # --- light-tailed Gaussian random walk -> sigma2 increases ~linearly ---
+    rng = np.random.default_rng(0)
+    steps = rng.normal(0.0, 1.0, size=(N, T - 1, 2))
+    pos = np.zeros((N, T, 2)); pos[:, 1:, :] = np.cumsum(steps, axis=1)
+    s2 = ensemble_to_kernel2d(pos, L=41).sigma2()
+    s2 = s2[np.isfinite(s2)]
+    assert np.all(np.diff(s2) > 0), "Gaussian ensemble sigma2 must increase in time"
+    tt = np.arange(len(s2), dtype=float)
+    assert np.corrcoef(tt, s2)[0, 1] > 0.97, "sigma2 must grow ~linearly (diffusive)"
+
+    # --- heavy-tailed Cauchy walk -> radial profile reads as power-law ---
+    rng2 = np.random.default_rng(1)
+    csteps = rng2.standard_cauchy(size=(N, T - 1, 2))
+    cpos = np.zeros((N, T, 2)); cpos[:, 1:, :] = np.cumsum(csteps, axis=1)
+    rep = classify_any(ensemble_to_radial_kernel(cpos, pct=99.5))
+    assert rep.features.get("tail shape", "").startswith("powerlaw"), \
+        f"heavy-tailed radial profile must be powerlaw, got {rep.features.get('tail shape')}"
+
+
+def test_yupi_examples_classify():
+    """v0.9: the committed yupi cross-library examples classify as expected
+    through the normal load path. Reads committed npz, so needs no yupi -- the
+    core job stays yupi-free."""
+    from kernel_viewer.io.loader import load_kernel
+    from kernel_viewer.regimes.classifier import classify_any, Regime
+    base = os.path.join(os.path.dirname(__file__), "..", "examples")
+    rw = classify_any(load_kernel(os.path.join(base, "yupi_randomwalk2d.npz")))
+    assert rw.regime == Regime.DIFFUSIVE, ("randomwalk", rw.regime)
+    assert rw.coherence == "MONOTONE", ("randomwalk", rw.coherence)
+    lv = classify_any(load_kernel(os.path.join(base, "yupi_levy2d_radial.npz")))
+    assert lv.regime == Regime.LEVY, ("levy", lv.regime)
+
+
 if __name__ == "__main__":
     test_ground_truth(); test_real_examples(); test_ground_truth_2d(); test_loader_dispatch()
     test_ground_truth_3d(); test_loader_3d(); test_radial_spectrum_gaussian_symbol()
@@ -295,4 +340,6 @@ if __name__ == "__main__":
     test_ground_truth_4d(); test_loader_4d_and_symbol()
     test_track_transition()
     test_load_any_mat_and_csv()
+    test_trajectory_helpers()
+    test_yupi_examples_classify()
     print("ALL TESTS PASS")
