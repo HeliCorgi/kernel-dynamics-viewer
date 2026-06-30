@@ -105,7 +105,7 @@ core test suite.
 
 | regime dashboard | stateflow axes |
 |---|---|
-| ![regime dashboard the GUI renders](examples/gui_dashboard_xxz.png) | ![stateflow axis timelines the GUI renders](examples/gui_stateflow_xxz.png) |
+| ![regime dashboard the GUI renders](https://raw.githubusercontent.com/HeliCorgi/kernel-dynamics-viewer/main/examples/gui_dashboard_xxz.png) | ![stateflow axis timelines the GUI renders](https://raw.githubusercontent.com/HeliCorgi/kernel-dynamics-viewer/main/examples/gui_stateflow_xxz.png) |
 
 *Planned (not in v0.8): Plotly interactivity, a `K(r, t)` time-slider
 animation, and multi-file comparison — see [`app/README.md`](app/README.md).*
