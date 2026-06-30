@@ -45,13 +45,17 @@ def ensemble_to_radial_kernel(positions: np.ndarray, pct: float = 99.5,
                               weight: float = 0.25) -> Kernel:
     """positions: (N_walkers, T_steps, D), walkers starting near the origin.
 
-    Build a radial DENSITY profile P(r,t) that preserves the heavy tail:
-    histogram the radial distance out to the ``pct`` percentile (so rare long
-    jumps are kept), then divide by shell area (2*pi*r in 2D) to get a density.
-    Returned as a 1D ``Kernel`` so kernel-viewer's tail-shape / transport
-    machinery sees the power-law tail. This is the correct representation for
-    Lévy flights, where a square-lattice histogram would clip the tail and hide
-    the power law.
+    Build a radial DENSITY profile P(r,t) for an (assumed isotropic) process:
+    histogram the radial distance out to the ``pct`` percentile, then divide by
+    the shell area (2*pi*r, i.e. 2D) to get a density, returned as a 1D
+    ``Kernel``. This keeps more of the tail than a fixed square lattice.
+
+    Caveat for very heavy tails: preserving the tail means ``Rmax`` (the ``pct``
+    percentile) can grow large, producing a many-bin profile that makes
+    kernel-viewer's tail-shape classification slow (its peak-count is ~O(R^2)).
+    That heuristic is also not a robust heavy-tail / Lévy detector -- for
+    anomalous-diffusion analysis prefer dedicated tools (MSD-exponent fits, van
+    Hove functions, ``scipy.stats.levy_stable``) over this profile.
     """
     positions = np.asarray(positions, dtype=float)
     N, T, D = positions.shape

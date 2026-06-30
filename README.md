@@ -262,39 +262,33 @@ regression tests.
 
 An ensemble of walkers all starting at the origin **is the propagator** of the
 process, so histogramming their positions at each time *is* a kernel `K(r, t)`.
-v0.9 uses [`yupi`](https://pypi.org/project/yupi/) — an independent trajectory
-library — to generate Brownian motion and Lévy flights, converts the ensembles
-to kernels with `kernel_viewer.io.trajectories`, and checks that kernel-viewer
-classifies *someone else's* implementation correctly. Classifying an independent
-process right is a **cross-library consistency check, not a tautology** — that
-is the scientific value.
+The check uses [`yupi`](https://pypi.org/project/yupi/) — an independent
+trajectory library — to generate 2D Brownian motion, converts the ensemble to a
+kernel with `kernel_viewer.io.trajectories.ensemble_to_kernel2d`, and confirms
+kernel-viewer classifies *someone else's* implementation correctly. Getting an
+independent process right is a **cross-library consistency check, not a
+tautology** — that is the scientific value.
 
 ```bash
 kernel-viewer classify examples/yupi_randomwalk2d.npz    # diffusive / MONOTONE / p~1.0
-kernel-viewer classify examples/yupi_levy2d_radial.npz   # levy (powerlaw tail) / p~1.5
 ```
 
-The two bundled npz files are committed, so these run with no extra install. To
-regenerate them (and catch yupi-API drift):
+The bundled npz is committed, so this runs with no extra install. To regenerate
+it (and catch yupi-API drift):
 
 ```bash
 pip install -e ".[examples]"
 python examples/generate_yupi_examples.py
 ```
 
-**The crux — why Lévy needs a radial profile.** A 2D *square-lattice histogram*
-of a Lévy ensemble **clips the heavy tail**: rare long jumps fall outside any
-finite box, the power-law signature is destroyed, and Lévy masquerades as sub-/
-diffusive. **A bigger box does not fix it** (the tail is unbounded). The fix is
-a *representation driven by the process*: build a **radial density profile** —
-bin the radial distance out to a high quantile (so the long jumps are kept) and
-divide by the shell area `2*pi*r` — which preserves the tail so kernel-viewer's
-tail-shape machinery sees the genuine power law. So `ensemble_to_kernel2d`
-(lattice) is used for the random walk and `ensemble_to_radial_kernel` (radial)
-for the Lévy ensemble; using the lattice path for Lévy is a known failure mode,
-not an option. The same clipping logic applies to the radial *quantile* itself:
-the generator bins to the 99.9th percentile, because 99.5 still clipped enough
-of this ensemble's tail to read as exponential.
+**Heavy-tailed (Lévy) processes are intentionally out of scope** for this
+cross-check. A square-lattice kernel clips the heavy tail, and a tail-preserving
+radial profile blows `Rmax` up into a many-bin kernel that is slow to classify
+and whose tail-shape verdict is not robust (keep the whole tail and it reads
+`levy` but is unusably slow; truncate it for speed and it flips to
+`superdiffusive`). Lévy / anomalous-diffusion detection is a mature field with
+dedicated tools (MSD-exponent fits, van Hove functions, `scipy.stats.levy_stable`,
+yupi's own analysis) — use those rather than this kernel's tail-shape heuristic.
 
 The conversion helpers take plain NumPy arrays `(N_walkers, T_steps, D)` and
 build the **existing** `Kernel`/`Kernel2D` objects — they add no diagnostics and
@@ -331,13 +325,12 @@ build the **existing** `Kernel`/`Kernel2D` objects — they add no diagnostics a
   return `UNKNOWN`.
 - Boundary effects are flagged via the edge fraction (default cut 0.3) and
   excluded from fits, but small systems simply have small clean windows.
-- yupi cross-check (v0.9): a square-lattice histogram **clips Lévy tails** — the
-  radial-density profile is required (and is 1D, so it **loses angular
-  information**; fine for the isotropic processes used here, not for anisotropic
-  ones). The two `yupi_*.npz` files are **committed** so the file-based tests are
-  the source of truth and never depend on regenerating identical randomness;
-  regeneration via `generate_yupi_examples.py` is a convenience / yupi-API-drift
-  check (yupi 1.0.2 honours its `seed`, but the committed files are what tests
-  read regardless).
+- yupi cross-check: only the **random walk** is bundled (`yupi_randomwalk2d.npz`,
+  committed, so the file-based test is the source of truth and never depends on
+  regenerating identical randomness). **Lévy is intentionally out of scope**
+  (v0.9.1): a square-lattice histogram clips the heavy tail, and a tail-preserving
+  radial profile is slow (large `Rmax` → many bins) and not a robust Lévy
+  detector — use dedicated anomalous-diffusion tools instead. The
+  `ensemble_to_radial_kernel` helper remains as a general (isotropic, 1D) utility.
 
 MIT license.
