@@ -1,4 +1,10 @@
-# Kernel Dynamics Viewer (v0.8)
+# Kernel Dynamics Viewer (v1.0)
+
+[![PyPI](https://img.shields.io/pypi/v/kernel-dynamics-viewer)](https://pypi.org/project/kernel-dynamics-viewer/) [![Python](https://img.shields.io/pypi/pyversions/kernel-dynamics-viewer)](https://pypi.org/project/kernel-dynamics-viewer/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/HeliCorgi/kernel-dynamics-viewer/blob/main/LICENSE)
+
+```bash
+pip install kernel-dynamics-viewer
+```
 
 A small Python toolkit for **regime diagnostics of spatiotemporal kernels**
 `K(r, t)` from non-equilibrium many-body systems (quantum or classical).
@@ -50,7 +56,7 @@ Two failure modes this design avoids:
 ## Quickstart
 
 ```bash
-pip install numpy scipy matplotlib
+pip install kernel-dynamics-viewer        # from PyPI (pulls numpy, scipy, matplotlib)
 python -m kernel_viewer.cli demo            # 4 synthetic kernels -> reports + dashboards
 python -m kernel_viewer.cli analyze examples/xxz_Sx_integrable.npz
 python -m kernel_viewer.cli classify examples/ising_q_chaotic.npz -o report.json
