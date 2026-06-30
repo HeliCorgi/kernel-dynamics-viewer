@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Core job: the library stays numpy + scipy + matplotlib. Streamlit is NOT
+  # installed here, proving the core install and the core suites never need it.
+  core:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (core only)
+        run: pip install -e .
+      - name: kernel-viewer suite (incl. mat/csv loaders)
+        run: python tests/test_smoke.py
+      - name: stateflow suite
+        run: python tests/test_stateflow.py
+
+  # GUI job: installs the optional .[gui] extra and runs the Streamlit app's
+  # analysis pipeline end-to-end on a bundled example, headless (no browser).
+  gui:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install with GUI extra
+        run: pip install -e ".[gui]"
+      - name: Headless GUI smoke test
+        run: python tests/test_gui_smoke.py
