@@ -1,4 +1,4 @@
-"""Streamlit GUI for kernel-dynamics-viewer (v0.8, "medium" scope).
+"""Streamlit GUI for kernel-dynamics-viewer (v0.9.2 polish over the v0.8 app).
 
 Drag in a kernel file (npz/npy/mat/csv) -> automatic full analysis -> a clean
 dashboard showing (i) the kernel/regime summary, (ii) the stateflow axis
@@ -13,8 +13,13 @@ lives in the library.
 
 The analysis wiring is exposed as plain importable functions (``load_capturing``,
 ``kernel_info``, ``compute_regime``, ``make_dashboard``, ``compute_stateflow``,
-``analyze``) so it can be smoke-tested headlessly without launching a browser.
+``analyze``, plus the ``report_json_bytes`` / ``dashboard_pdf_bytes`` export
+helpers) so it can be smoke-tested headlessly without launching a browser.
 Every Streamlit call lives inside ``main()``; importing this module runs no UI.
+
+v0.9.2 polish over the v0.8 app: a sidebar "Load Example Dataset" dropdown
+auto-listed from examples/*.npz, ``st.spinner`` progress on the slow steps, and a
+JSON (reusing ``save_report``) + single-PDF (the shown dashboard) download area.
 
 Run it with::
 
@@ -23,6 +28,7 @@ Run it with::
 """
 from __future__ import annotations
 
+import io
 import os
 import sys
 import tempfile
@@ -40,6 +46,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from kernel_viewer.io.loader import load_any
+from kernel_viewer.io.saver import save_report
 from kernel_viewer.regimes.classifier import classify_any
 from kernel_viewer.core.kernel2d import Kernel2D
 from kernel_viewer.core.kernel3d import Kernel3D
@@ -171,6 +178,33 @@ def _write_upload(uploaded):
     return tmp
 
 
+def report_json_bytes(report):
+    """JSON bytes for a RegimeReport, produced by reusing the library's
+    ``kernel_viewer.io.saver.save_report`` -- the single source of truth for the
+    report dict (regime / coherence / exponent / features / notes). Not
+    hand-serialized."""
+    fd, tmp = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        save_report(report, tmp)
+        with open(tmp, "rb") as f:
+            return f.read()
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+def dashboard_pdf_bytes(fig):
+    """Render the already-built dashboard ``Figure`` to a one-page PDF (bytes)
+    via matplotlib's own pdf backend -- no new dependency, no multi-page
+    assembly, just the single figure the app is already showing."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="pdf", bbox_inches="tight")
+    return buf.getvalue()
+
+
 # ---------------------------------------------------------------------------
 # Streamlit UI (only runs under `streamlit run`, never on import).
 # ---------------------------------------------------------------------------
@@ -211,22 +245,28 @@ def main():
         help="matrix: (T, R) grid (NaN corner = labelled). long: columns t, r, K.",
     )
 
-    # --- Input: upload, or load a bundled example. ---
+    # --- Sidebar: load a bundled example (auto-listed from examples/*.npz). ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Load Example Dataset")
+    examples = list_examples()
+    chosen = st.sidebar.selectbox(
+        "examples/*.npz", examples,
+        index=examples.index("xxz_Sx_integrable.npz")
+        if "xxz_Sx_integrable.npz" in examples else 0,
+        help="Auto-listed from the examples/ folder.",
+    ) if examples else None
+    demo_clicked = st.sidebar.button(
+        "Load Example", disabled=not examples, use_container_width=True)
+
+    # --- Main: file uploader. ---
     st.subheader("Input")
     up = st.file_uploader(
         "Upload a kernel file", type=UPLOAD_TYPES,
-        help="npz/npy (K[, r, t]), mat (K + coords), or 1D csv/txt.",
+        help="npz/npy (K[, r, t]), mat (K + coords), or 1D csv/txt. "
+             "Or pick a bundled example in the sidebar.",
     )
-    examples = list_examples()
-    c1, c2 = st.columns([3, 1])
-    chosen = c1.selectbox("… or pick a bundled example", examples,
-                          index=examples.index("xxz_Sx_integrable.npz")
-                          if "xxz_Sx_integrable.npz" in examples else 0) \
-        if examples else None
-    demo_clicked = c2.button("Load a bundled example", use_container_width=True,
-                             disabled=not examples)
 
-    # Resolve the active path. Upload wins; the demo selection persists across
+    # Resolve the active path. Upload wins; the example selection persists across
     # reruns (e.g. when a slider changes) via session_state.
     path, source = None, None
     if up is not None:
@@ -245,9 +285,10 @@ def main():
 
     st.markdown(f"**Source:** `{source}`")
 
-    # --- Load (graceful errors). ---
+    # --- Load (spinner + graceful errors). ---
     try:
-        kernel, warns = load_capturing(path, time_axis=time_axis, layout=layout)
+        with st.spinner("Loading kernel..."):
+            kernel, warns = load_capturing(path, time_axis=time_axis, layout=layout)
     except NotImplementedError as e:
         st.error(f"Unsupported input: {e}")
         return
@@ -260,26 +301,45 @@ def main():
     info = kernel_info(kernel)
     m = st.columns(4)
     m[0].metric("dimensionality", f"{info['dimensionality']}D")
-    m[1].metric("K shape", "×".join(str(s) for s in info["K_shape"]))
+    m[1].metric("K shape", "x".join(str(s) for s in info["K_shape"]))
     m[2].metric("times", info["n_times"])
     m[3].metric("t range", f"[{info['t_min']:g}, {info['t_max']:g}]")
 
     # --- Regime panel: exact CLI summary text + matplotlib dashboard. ---
     st.subheader("Regime")
+    report, pdf_bytes = None, None
     try:
-        report = compute_regime(kernel, ring_threshold, edge_limit)
+        with st.spinner("Classifying transport x coherence..."):
+            report = compute_regime(kernel, ring_threshold, edge_limit)
         st.code(report.summary(), language="text")
-        fig = make_dashboard(kernel, report)
+        with st.spinner("Rendering dashboard..."):
+            fig = make_dashboard(kernel, report)
         st.pyplot(fig)
+        pdf_bytes = dashboard_pdf_bytes(fig)   # capture the SHOWN figure for PDF
         plt.close(fig)
     except Exception as e:  # noqa: BLE001
         st.error(f"Classification / dashboard failed: {e}")
         return
 
+    # --- Downloads: JSON via save_report (reused), PDF of the shown dashboard. ---
+    st.subheader("Download results")
+    d1, d2 = st.columns(2)
+    try:
+        d1.download_button(
+            "Download report (JSON)", report_json_bytes(report),
+            file_name="kernel_report.json", mime="application/json")
+    except Exception as e:  # noqa: BLE001
+        d1.error(f"JSON export failed: {e}")
+    if pdf_bytes is not None:
+        d2.download_button(
+            "Download dashboard (PDF)", pdf_bytes,
+            file_name="kernel_dashboard.pdf", mime="application/pdf")
+
     # --- stateflow panel: continuous axes + episodes + transitions. ---
     st.subheader("stateflow axes")
     try:
-        sf = compute_stateflow(kernel, ring_threshold)
+        with st.spinner("Computing axis trajectories..."):
+            sf = compute_stateflow(kernel, ring_threshold)
         s1, s2 = st.columns(2)
         p = sf["transport_p"]
         s1.metric("transport exponent p", "n/a" if p != p else f"{p:.3f}")
@@ -300,8 +360,8 @@ def main():
 
     st.markdown("---")
     st.caption(
-        "Planned (not in v0.8): Plotly interactivity, K(r,t) time-slider "
-        "animation, multi-file comparison."
+        "Planned: Plotly interactivity, K(r,t) time-slider animation, "
+        "multi-file comparison."
     )
 
 
